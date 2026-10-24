@@ -4,9 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.grappim.kit.domain.PendingCertTrust
 import com.grappim.kit.domain.findPendingCertTrust
+import com.grappim.kit.domain.resultOf
 import com.grappim.kit.logger.LogPriority
 import com.grappim.kit.logger.logcat
 import com.grappim.kit.uikit.NativeText
+import com.grappim.wallosmobile.core.storage.selfsigned.SelfSignedCertStorage
 import com.grappim.wallosmobile.feature.setup.domain.model.ApiKeyNotFound
 import com.grappim.wallosmobile.feature.setup.domain.model.LoginOutcome
 import com.grappim.wallosmobile.feature.setup.domain.model.PasswordLoginAvailability
@@ -41,7 +43,10 @@ import kotlin.time.Duration.Companion.milliseconds
  * a process death gets a clean cookie jar.
  */
 @KoinViewModel
-class LoginViewModel(private val setupRepository: SetupRepository) : ViewModel() {
+class LoginViewModel(
+    private val setupRepository: SetupRepository,
+    private val selfSignedCertStorage: SelfSignedCertStorage
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
         LoginUiState(
@@ -52,6 +57,7 @@ class LoginViewModel(private val setupRepository: SetupRepository) : ViewModel()
             onTotpCodeChange = ::onTotpCodeChange,
             onPasswordVisibilityChange = ::onPasswordVisibilityChange,
             onApiKeyModeChange = ::onApiKeyModeChange,
+            onAllowSelfSignedCertsChange = ::onAllowSelfSignedCertsChange,
             onConnectClick = ::onConnectClick,
             onCertTrustConfirm = ::onCertTrustConfirm,
             onCertTrustDismiss = ::onCertTrustDismiss
@@ -67,6 +73,9 @@ class LoginViewModel(private val setupRepository: SetupRepository) : ViewModel()
 
     init {
         observeServerUrl()
+        selfSignedCertStorage.allowSelfSignedCerts
+            .onEach { enabled -> _uiState.update { it.copy(isAllowSelfSignedCerts = enabled) } }
+            .launchIn(viewModelScope)
         viewModelScope.launch {
             setupRepository.getStoredServerUrl()
                 .onSuccess(::onStoredServerUrl)
@@ -169,6 +178,20 @@ class LoginViewModel(private val setupRepository: SetupRepository) : ViewModel()
                 totpCode = "",
                 error = NativeText.Empty
             )
+        }
+    }
+
+    /**
+     * A standing preference, not part of the attempt: the engine consults it at every handshake,
+     * so the next Connect needs no retry plumbing of its own. A failed write leaves the switch
+     * where storage last said it was — the flow above is the only thing that moves it.
+     */
+    private fun onAllowSelfSignedCertsChange(enabled: Boolean) {
+        viewModelScope.launch {
+            resultOf { selfSignedCertStorage.setAllowSelfSignedCerts(enabled) }
+                .onFailure {
+                    logcat(priority = LogPriority.WARN, throwable = it) { "Storing the self-signed setting failed" }
+                }
         }
     }
 

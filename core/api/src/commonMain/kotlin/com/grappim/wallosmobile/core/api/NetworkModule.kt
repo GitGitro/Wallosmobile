@@ -2,6 +2,7 @@ package com.grappim.wallosmobile.core.api
 
 import com.grappim.kit.appinfo.AppInfoProvider
 import com.grappim.kit.storage.cert.TrustedCertStorage
+import com.grappim.wallosmobile.core.storage.selfsigned.SelfSignedCertStorage
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpRequestRetry
 import io.ktor.client.plugins.cookies.AcceptAllCookiesStorage
@@ -41,8 +42,9 @@ class NetworkModule {
     fun provideHttpClient(
         baseUrlProvider: BaseUrlProvider,
         appInfoProvider: AppInfoProvider,
-        trustedCertStorage: TrustedCertStorage
-    ): HttpClient = HttpClient(createPlatformHttpClientEngine(trustedCertStorage)) {
+        trustedCertStorage: TrustedCertStorage,
+        selfSignedCertStorage: SelfSignedCertStorage
+    ): HttpClient = HttpClient(createPlatformHttpClientEngine(trustedCertStorage, selfSignedCertStorage)) {
         // Wallos answers 200 to auth and validation failures alike; the status carries no
         // API-level meaning, so raising on it would be raising on nothing.
         expectSuccess = false
@@ -69,8 +71,9 @@ class NetworkModule {
     fun provideWebSessionHttpClient(
         baseUrlProvider: BaseUrlProvider,
         appInfoProvider: AppInfoProvider,
-        trustedCertStorage: TrustedCertStorage
-    ): HttpClient = HttpClient(createPlatformHttpClientEngine(trustedCertStorage)) {
+        trustedCertStorage: TrustedCertStorage,
+        selfSignedCertStorage: SelfSignedCertStorage
+    ): HttpClient = HttpClient(createPlatformHttpClientEngine(trustedCertStorage, selfSignedCertStorage)) {
         // The redirect *is* the result: 302 means the credentials were accepted, and a
         // `Location` of `totp.php` means a second factor is pending (plan §1.1).
         followRedirects = false

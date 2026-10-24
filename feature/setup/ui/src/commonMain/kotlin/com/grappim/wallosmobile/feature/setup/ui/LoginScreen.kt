@@ -3,12 +3,14 @@ package com.grappim.wallosmobile.feature.setup.ui
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -17,6 +19,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -28,6 +31,7 @@ import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentType
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
@@ -44,6 +48,8 @@ import com.grappim.wallosmobile.strings.RPlurals
 import com.grappim.wallosmobile.strings.RString
 import com.grappim.wallosmobile.strings.generated.resources.login_api_key_hint
 import com.grappim.wallosmobile.strings.generated.resources.login_api_key_label
+import com.grappim.wallosmobile.strings.generated.resources.login_allow_self_signed
+import com.grappim.wallosmobile.strings.generated.resources.login_allow_self_signed_description
 import com.grappim.wallosmobile.strings.generated.resources.login_cert_trust_cancel
 import com.grappim.wallosmobile.strings.generated.resources.login_cert_trust_confirm
 import com.grappim.wallosmobile.strings.generated.resources.login_cert_trust_fingerprint
@@ -160,6 +166,11 @@ private fun LoginContent(uiState: LoginUiState, modifier: Modifier = Modifier) {
             uiState.isTotpRequired -> TotpField(uiState = uiState, focusManager = focusManager)
             else -> CredentialFields(uiState = uiState, focusManager = focusManager)
         }
+
+        AllowSelfSignedCertsRow(
+            checked = uiState.isAllowSelfSignedCerts,
+            onCheckedChange = uiState.onAllowSelfSignedCertsChange
+        )
 
         if (uiState.error.isNotEmpty()) {
             Text(
@@ -313,6 +324,33 @@ private fun ApiKeyField(uiState: LoginUiState, focusManager: FocusManager) {
 }
 
 /**
+ * The one lever that helps when the instance's certificate cannot be verified at all — a name
+ * that does not match the address, or a chain the device will never accept — because the trust
+ * prompt only ever offers a certificate whose name does match. The whole row is the target, so
+ * the `Switch` takes `onCheckedChange = null` and is drawn by the row's `toggleable`.
+ */
+@Composable
+private fun AllowSelfSignedCertsRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(end = LABEL_SPACING)) {
+            Text(text = stringResource(RString.login_allow_self_signed), style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = stringResource(RString.login_allow_self_signed_description),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(checked = checked, onCheckedChange = null)
+    }
+}
+
+/**
  * Trust-on-first-use, and the one screen in the app that asks the user to weigh a security
  * decision — so it shows what the decision is *about* rather than only naming the host. The
  * fingerprint is the part that can actually be compared against the server, which is why it is
@@ -376,6 +414,7 @@ private fun CertTrustRow(label: StringResource, value: String, fontFamily: FontF
 
 private val PADDING = 16.dp
 private val FIELD_SPACING = 16.dp
+private val LABEL_SPACING = 16.dp
 private val PROGRESS_SIZE = 48.dp
 private val CERT_ROW_SPACING = 12.dp
 private val LOGO_SIZE = 96.dp
@@ -447,6 +486,20 @@ private fun LoginContentCleartextPreview() = WallosMobilePreviewTheme {
             serverUrl = "http://wallos.lan:8282",
             username = "demo",
             password = "demo"
+        )
+    )
+}
+
+/** The switch in the state the trust prompt cannot help: on, with its warning description. */
+@PreviewWallosDarkLight
+@Composable
+private fun LoginContentSelfSignedPreview() = WallosMobilePreviewTheme {
+    LoginContent(
+        uiState = LoginUiState(
+            serverUrl = "https://10.0.2.2:8443",
+            username = "demo",
+            password = "demo",
+            isAllowSelfSignedCerts = true
         )
     )
 }

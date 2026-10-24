@@ -9,6 +9,7 @@ import com.grappim.wallosmobile.core.api.NetworkModule
 import com.grappim.wallosmobile.core.api.createPlatformHttpClientEngine
 import com.grappim.wallosmobile.core.asynckmp.KmpCoroutinesModule
 import com.grappim.wallosmobile.core.storage.StorageModule
+import com.grappim.wallosmobile.core.storage.selfsigned.SelfSignedCertStorage
 import com.grappim.wallosmobile.feature.categories.data.CategoriesDataModule
 import com.grappim.wallosmobile.feature.categories.mapper.CategoriesMapperModule
 import com.grappim.wallosmobile.feature.categories.ui.CategoriesUiModule
@@ -118,12 +119,16 @@ class AppModule {
      */
     @OptIn(ExperimentalCoilApi::class)
     @Single
-    fun provideImageLoader(context: PlatformContext, trustedCertStorage: TrustedCertStorage): ImageLoader =
+    fun provideImageLoader(
+        context: PlatformContext,
+        trustedCertStorage: TrustedCertStorage,
+        selfSignedCertStorage: SelfSignedCertStorage
+    ): ImageLoader =
         ImageLoader.Builder(context)
             .components {
                 add(
                     KtorNetworkFetcherFactory(
-                        HttpClient(createPlatformHttpClientEngine(trustedCertStorage))
+                        HttpClient(createPlatformHttpClientEngine(trustedCertStorage, selfSignedCertStorage))
                     )
                 )
             }

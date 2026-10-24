@@ -19,6 +19,10 @@ kotlin {
             // `getErrorMessage`/`ObserveAsEvents` — no longer reachable transitively through
             // `uikit`, which now depends on `grappim-kit-uikit` instead of `utils:ui`.
             implementation(projects.utils.ui)
+
+            // The login screen's allow-self-signed switch writes this directly — the same
+            // single-seam shape as `InterfaceViewModel`'s storages.
+            implementation(projects.core.storage)
         }
     }
 }

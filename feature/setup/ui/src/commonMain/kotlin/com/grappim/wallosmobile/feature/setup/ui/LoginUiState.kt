@@ -20,6 +20,11 @@ import com.grappim.kit.uikit.NativeText
  * Path B and says why. Everything the probe can't answer leaves it `false` — it hides a path, so
  * it may only be set on evidence.
  *
+ * [isAllowSelfSignedCerts] is a standing preference, not part of any one attempt: the TLS engine
+ * consults it at every handshake, so it is the one lever that helps when the certificate's name
+ * does not match the address and the trust prompt has nothing to offer. The value shown is what
+ * storage last emitted, so a failed write is a switch that did not move.
+ *
  * [throttleWaitSeconds] is a number and not a phrase because the copy is a `<plurals>` the
  * composable resolves (CLAUDE.md). It exists only while an attempt is in flight — the wait is
  * spent inside the call — so it is written and cleared by that call and by nothing else.
@@ -34,6 +39,7 @@ data class LoginUiState(
     val isApiKeyMode: Boolean = false,
     val isPasswordLoginDisabled: Boolean = false,
     val isTotpRequired: Boolean = false,
+    val isAllowSelfSignedCerts: Boolean = false,
     val isLoading: Boolean = false,
     val throttleWaitSeconds: Int = 0,
     val error: NativeText = NativeText.Empty,
@@ -45,6 +51,7 @@ data class LoginUiState(
     val onTotpCodeChange: (String) -> Unit = {},
     val onPasswordVisibilityChange: (Boolean) -> Unit = {},
     val onApiKeyModeChange: (Boolean) -> Unit = {},
+    val onAllowSelfSignedCertsChange: (Boolean) -> Unit = {},
     val onConnectClick: () -> Unit = {},
     val onCertTrustConfirm: () -> Unit = {},
     val onCertTrustDismiss: () -> Unit = {}

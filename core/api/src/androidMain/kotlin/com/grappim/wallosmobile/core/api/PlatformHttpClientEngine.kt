@@ -2,6 +2,7 @@ package com.grappim.wallosmobile.core.api
 
 import com.grappim.kit.storage.cert.TrustedCertStorage
 import com.grappim.kit.trustmanager.CompositeTrustManager
+import com.grappim.wallosmobile.core.storage.selfsigned.SelfSignedCertStorage
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.okhttp.OkHttp
 import java.security.KeyStore
@@ -10,16 +11,24 @@ import javax.net.ssl.TrustManager
 import javax.net.ssl.TrustManagerFactory
 import javax.net.ssl.X509TrustManager
 
-actual fun createPlatformHttpClientEngine(trustedCertStorage: TrustedCertStorage): HttpClientEngine {
-    val trustManager = CompositeTrustManager(systemTrustManager(), trustedCertStorage)
+actual fun createPlatformHttpClientEngine(
+    trustedCertStorage: TrustedCertStorage,
+    selfSignedCertStorage: SelfSignedCertStorage
+): HttpClientEngine {
+    val trustManager = AllowSelfSignedTrustManager(
+        delegate = CompositeTrustManager(systemTrustManager(), trustedCertStorage),
+        selfSignedCertStorage = selfSignedCertStorage
+    )
     val sslContext = SSLContext.getInstance("TLS").apply {
         init(null, arrayOf<TrustManager>(trustManager), null)
     }
 
     return OkHttp.create {
         config {
-            // Hostname verification is left alone — this replaces *chain* trust, nothing else.
+            // While the setting is off this replaces *chain* trust only; the hostname verifier is
+            // the platform's own. While it is on, both wave everything through.
             sslSocketFactory(sslContext.socketFactory, trustManager)
+            hostnameVerifier(AllowSelfSignedHostnameVerifier(selfSignedCertStorage))
         }
     }
 }

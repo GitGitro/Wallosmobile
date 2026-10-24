@@ -5,6 +5,7 @@ import com.grappim.kit.domain.UntrustedCertificateException
 import com.grappim.kit.testing.MainDispatcherRule
 import com.grappim.kit.uikit.NativeText
 import com.grappim.wallosmobile.core.domain.WallosError
+import com.grappim.wallosmobile.core.storage.selfsigned.SelfSignedCertStorage
 import com.grappim.wallosmobile.feature.setup.domain.model.ApiKeyNotFound
 import com.grappim.wallosmobile.feature.setup.domain.model.LoginOutcome
 import com.grappim.wallosmobile.feature.setup.domain.model.PasswordLoginAvailability
@@ -19,6 +20,8 @@ import com.grappim.wallosmobile.strings.generated.resources.login_error_invalid_
 import com.grappim.wallosmobile.strings.generated.resources.login_error_invalid_totp
 import com.grappim.wallosmobile.strings.generated.resources.login_error_totp_session_expired
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.compose.resources.StringResource
 import kotlin.test.AfterTest
@@ -45,7 +48,9 @@ class LoginViewModelTest {
         mainDispatcherRule.tearDown()
     }
 
-    private fun viewModel() = LoginViewModel(repository)
+    private fun viewModel() = LoginViewModel(repository, FakeSelfSignedCertStorage())
+
+    private fun viewModelWith(storage: FakeSelfSignedCertStorage) = LoginViewModel(repository, storage)
 
     private fun LoginViewModel.fillCredentials() {
         with(uiState.value) {
@@ -545,6 +550,32 @@ class LoginViewModelTest {
         assertFalse(sut.uiState.value.isLoading)
     }
 
+    /** The engine reads the preference at every handshake, so the screen has to show the stored one. */
+    @Test
+    fun `the switch shows the stored preference`() {
+        val sut = viewModelWith(FakeSelfSignedCertStorage(initial = true))
+
+        assertTrue(sut.uiState.value.isAllowSelfSignedCerts)
+    }
+
+    @Test
+    fun `a fresh install starts with self signed certificates refused`() {
+        val sut = viewModel()
+
+        assertFalse(sut.uiState.value.isAllowSelfSignedCerts)
+    }
+
+    @Test
+    fun `toggling the switch persists the preference`() = runTest {
+        val storage = FakeSelfSignedCertStorage()
+        val sut = viewModelWith(storage)
+
+        sut.uiState.value.onAllowSelfSignedCertsChange(true)
+
+        assertEquals(listOf(true), storage.setCalls)
+        assertTrue(sut.uiState.value.isAllowSelfSignedCerts)
+    }
+
     @Test
     fun `accepting the certificate pins it and retries the attempt that failed`() = runTest {
         repository.loginResult = Result.failure(handshakeFailure())
@@ -691,6 +722,26 @@ class LoginViewModelTest {
         "handshake failed",
         IllegalStateException("certificate", UntrustedCertificateException(PENDING_CERT_TRUST))
     )
+
+    /**
+     * Private to this file for the same reason as [FakeSetupRepository]: this is the only module
+     * that needs a double of the storage, and `:testing` is for the ones several need.
+     */
+    private class FakeSelfSignedCertStorage(initial: Boolean = false) : SelfSignedCertStorage {
+
+        private val allow = MutableStateFlow(initial)
+        val setCalls = mutableListOf<Boolean>()
+
+        override val allowSelfSignedCerts: Flow<Boolean> = allow
+
+        override val isAllowSelfSignedCerts: Boolean
+            get() = allow.value
+
+        override suspend fun setAllowSelfSignedCerts(enabled: Boolean) {
+            setCalls += enabled
+            allow.value = enabled
+        }
+    }
 
     /**
      * Private to this file on purpose: `:testing` is for doubles *other* modules need, and
